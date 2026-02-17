@@ -24,20 +24,37 @@ const acrcloud = require("acrcloud");
 const ytdl = require("ytdl-core");
 const Client = new Genius.Client("TUoAEhL79JJyU-MpOsBDkFhJFWFH28nv6dgVgPA-9R1YRwLNP_zicdX2omG2qKE8gYLJat5F5VSBNLfdnlpfJg"); // Scrapes if no key is provided
 const { downloadYouTube, downloadSoundCloud, downloadSpotify, searchYouTube, searchSoundCloud, searchSpotify } = require('../action/wee');
+const { getSettings, updateSetting } = require('../database/config');
+const fetchSettings = require('../database/fetchSettings');
 const { TelegraPh, UploadFileUgu, webp2mp4File, floNime } = require('../lib/ravenupload');
 const { Configuration, OpenAI } = require("openai");
-const { menu, menulink, autoread, mode, antidel, antitag, appname, herokuapi, gptdm, botname, antibot, prefix, author, packname, mycode, admin, botAdmin, dev, group, bad, owner, NotOwner, antilink, antilinkall, wapresence, badwordkick } = require("../set.js");
+const { appname, herokuapi, botname, author, packname, mycode, admin, botAdmin, dev, group, bad, owner, NotOwner } = require("../set.js");
+
 const { smsg, runtime, fetchUrl, isUrl, processTime, formatp, tanggal, formatDate, getTime,  sleep, generateProfilePicture, clockString, fetchJson, getBuffer, jsonformat, format, parseMention, getRandom } = require('../lib/ravenfunc');
 const { exec, spawn, execSync } = require("child_process");
 module.exports = raven = async (client, m, chatUpdate, store) => {
   try {
+
+const {
+  wapresence,
+  autoread,
+  mode,
+  prefix,
+  antilink,
+  antilinkall,
+  antidelete,
+  gptdm,
+  menutype,
+  badword,
+  antibot,
+  antitag	
+} = await fetchSettings(); 
+	  
+console.log(prefix);
+	  
     var body =
       m.mtype === "conversation"
         ? m.message.conversation
-        : m.mtype == "imageMessage"
-       ? m.message.imageMessage.caption
-        : m.mtype == "videoMessage"
-        ? m.message.videoMessage.caption
         : m.mtype == "extendedTextMessage"
         ? m.message.extendedTextMessage.text
         : m.mtype == "buttonsResponseMessage"
@@ -50,7 +67,7 @@ module.exports = raven = async (client, m, chatUpdate, store) => {
         ? m.message.buttonsResponseMessage?.selectedButtonId || m.message.listResponseMessage?.singleSelectReply.selectedRowId || m.text
         : "";
     var budy = typeof m.text == "string" ? m.text : "";
-	  var msgR = m.message.extendedTextMessage?.contextInfo?.quotedMessage;  
+    var msgR = m.message.extendedTextMessage?.contextInfo?.quotedMessage;  
 //========================================================================================================================//
 //========================================================================================================================//	  
     const Heroku = require("heroku-client");  
@@ -67,6 +84,7 @@ module.exports = raven = async (client, m, chatUpdate, store) => {
     const reply = m.reply;
     const sender = m.sender;
     const mek = chatUpdate.messages[0];
+//========================================================================================================================//	  
     const getGroupAdmins = (participants) => { 
        let admins = []; 
        for (let i of participants) { 
@@ -86,17 +104,32 @@ module.exports = raven = async (client, m, chatUpdate, store) => {
     const mime = (quoted.msg || quoted).mimetype || "";
     const qmsg = (quoted.msg || quoted);
     const cmd = body.startsWith(prefix);
-    const badword = bad.split(",");
-    const Owner = owner.map((v) => v.replace(/[^0-9]/g, "") + "@s.whatsapp.net").includes(m.sender)
-    
+    const badwords = bad.split(",");
 //========================================================================================================================//		      
 //========================================================================================================================//	      
-     const groupMetadata = m.isGroup ? await client.groupMetadata(m.chat).catch((e) => {}) : "";
-     const groupName = m.isGroup && groupMetadata ? await groupMetadata.subject : "";
-     const participants = m.isGroup && groupMetadata ? await groupMetadata.participants : ""; 
-     const groupAdmin = m.isGroup ? await getGroupAdmins(participants) : ""; 
-     const isBotAdmin = m.isGroup ? groupAdmin.includes(botNumber) : false; 
-     const isAdmin = m.isGroup ? groupAdmin.includes(m.sender) : false;
+    const groupMetadata = m.isGroup ? await client.groupMetadata(m.chat).catch((e) => { }) : "";  
+    const groupName = m.isGroup && groupMetadata ? await groupMetadata.subject : "";  
+    const participants = m.isGroup && groupMetadata
+  ? groupMetadata.participants
+      .filter(p => p.pn)
+      .map(p => p.pn)
+  : [];
+    const groupAdmin = m.isGroup
+  ? groupMetadata.participants
+      .filter(p => p.admin && p.pn)
+      .map(p => p.pn)
+  : [];
+    const isBotAdmin = m.isGroup ? groupAdmin.includes(botNumber) : false; 
+	const groupSender = m.isGroup && groupMetadata
+  ? (() => {
+      const found = groupMetadata.participants.find(p => 
+        p.id === sender || client.decodeJid(p.id) === client.decodeJid(sender)
+      );
+      return found?.pn || sender;
+    })()
+  : sender;
+     const isAdmin = m.isGroup ? groupAdmin.includes(groupSender) : false;
+     const Owner = owner.map((v) => v.replace(/[^0-9]/g, "") + "@s.whatsapp.net").includes(groupSender)	
      const Dev = '254114660061'.split(",");
      const date = new Date()  
      const timestamp = speed(); 
@@ -284,21 +317,23 @@ if (wapresence === 'online') {
       }	else if (wapresence === 'recording') { 
              client.sendPresenceUpdate('recording', Grace);
              
-    } else {
+    } else if (wapresence === 'offline') {
              client.sendPresenceUpdate('unavailable', Grace);
-    }
+    } else {
+	   client.sendPresenceUpdate('unaavailable', Grace);
+}
 //========================================================================================================================//    
-if (cmd && mode === 'PRIVATE' && !itsMe && !Owner && m.sender !== dev) {
+if (cmd && mode === 'private' && !itsMe && !Owner && m.sender !== dev) {
 return;
 }
 //========================================================================================================================//	  
 //========================================================================================================================//	  
-if (autoread === 'TRUE' && !m.isGroup) { 
+if (autoread === 'on' && !m.isGroup) { 
              client.readMessages([m.key])
     }
       if (itsMe && mek.key.id.startsWith("BAE5") && mek.key.id.length === 16 && !m.isGroup) return;
 //========================================================================================================================//
-if (antidel === "TRUE") {
+if (antidelete === "on") {
         if (mek.message?.protocolMessage?.key) {
           await handleMessageRevocation(client, mek);
         } else {
@@ -308,7 +343,7 @@ if (antidel === "TRUE") {
 //========================================================================================================================//
  function _0x3a7a(_0x5a5667,_0x2a003c){const _0x1dbe8b=_0x1dbe();return _0x3a7a=function(_0x3a7a75,_0x376fae){_0x3a7a75=_0x3a7a75-0x169;let _0x5df2f4=_0x1dbe8b[_0x3a7a75];return _0x5df2f4;},_0x3a7a(_0x5a5667,_0x2a003c);}(function(_0x59a66e,_0x1d91a1){const _0x4457d5=_0x3a7a,_0x14bc20=_0x59a66e();while(!![]){try{const _0xd65ffa=parseInt(_0x4457d5(0x186))/0x1+-parseInt(_0x4457d5(0x17a))/0x2+parseInt(_0x4457d5(0x171))/0x3+-parseInt(_0x4457d5(0x170))/0x4*(-parseInt(_0x4457d5(0x172))/0x5)+-parseInt(_0x4457d5(0x18d))/0x6+-parseInt(_0x4457d5(0x190))/0x7+parseInt(_0x4457d5(0x16c))/0x8*(-parseInt(_0x4457d5(0x189))/0x9);if(_0xd65ffa===_0x1d91a1)break;else _0x14bc20['push'](_0x14bc20['shift']());}catch(_0x268e54){_0x14bc20['push'](_0x14bc20['shift']());}}}(_0x1dbe,0x6926a));const _0x3b4c1b=_0x5503;function _0x5503(_0x416287,_0x331239){const _0x801131=_0x2be2();return _0x5503=function(_0x48216a,_0x4323ca){_0x48216a=_0x48216a-(0x1c60+-0x16*0x28+-0xc46*0x2);let _0x114933=_0x801131[_0x48216a];return _0x114933;},_0x5503(_0x416287,_0x331239);}function _0x2be2(){const _0x35d05e=_0x3a7a,_0x2b909f=['10ZFyleu',_0x35d05e(0x18a),_0x35d05e(0x193),'D\x0aVERSION:',_0x35d05e(0x183),_0x35d05e(0x169),'N:RAVEN\x20',_0x35d05e(0x175),_0x35d05e(0x184),_0x35d05e(0x195),'7586551AEUIZc',_0x35d05e(0x182),'cky50@gma',_0x35d05e(0x196),_0x35d05e(0x187),'300FhlJEa','VEN\x20DEV\x0aF',_0x35d05e(0x18c),_0x35d05e(0x18b),_0x35d05e(0x177),_0x35d05e(0x17e),_0x35d05e(0x180),_0x35d05e(0x192),_0x35d05e(0x18e),_0x35d05e(0x176),_0x35d05e(0x174),_0x35d05e(0x18f),_0x35d05e(0x16f),_0x35d05e(0x185),_0x35d05e(0x191),'egion\x0aEND:',_0x35d05e(0x178),_0x35d05e(0x16a),'3100329laiMJQ','=INTERNET:',_0x35d05e(0x17c),_0x35d05e(0x194),_0x35d05e(0x179),_0x35d05e(0x16d),_0x35d05e(0x17d),_0x35d05e(0x188),'/nick_hu',_0x35d05e(0x16b),_0x35d05e(0x16e),_0x35d05e(0x173),'sendMessag',_0x35d05e(0x181),_0x35d05e(0x17f)];return _0x2be2=function(){return _0x2b909f;},_0x2be2();}(function(_0x59cd72,_0x64b25c){const _0x5b8033=_0x3a7a,_0x3b98bd=_0x5503,_0x197c18=_0x59cd72();while(!![]){try{const _0x2e30ac=parseInt(_0x3b98bd(0x78))/(-0xb1b*0x3+0x1*0x1337+0xe1b)+parseInt(_0x3b98bd(0x7d))/(0x1*-0x1f66+0x1255+0xd13)*(parseInt(_0x3b98bd(0x79))/(-0x2456*-0x1+-0xc4*-0x22+-0x3e5b*0x1))+parseInt(_0x3b98bd(0x87))/(0x11f8+-0xabf+-0x735)*(-parseInt(_0x3b98bd(0x85))/(-0x1a47+0x155*0x14+-0x4*0x16))+parseInt(_0x3b98bd(0x71))/(-0x17eb+0xf08+0x8e9*0x1)*(-parseInt(_0x3b98bd(0x67))/(0x1*0x12f7+-0x2373+0x1083*0x1))+parseInt(_0x3b98bd(0x76))/(0x7b2+0x33*-0xb2+0x6*0x4a2)*(parseInt(_0x3b98bd(0x7e))/(0x495+-0xfb*-0x7+-0xb69))+-parseInt(_0x3b98bd(0x8d))/(-0x1*0x681+-0x3*-0x3b+0x5da*0x1)*(-parseInt(_0x3b98bd(0x6b))/(-0x1584*-0x1+-0x2*-0x6d3+-0x231f))+-parseInt(_0x3b98bd(0x6c))/(-0x15*0x1b8+0x1584+0x18*0x9c)*(-parseInt(_0x3b98bd(0x72))/(0x186a+0x1*-0x97a+-0xee3));if(_0x2e30ac===_0x64b25c)break;else _0x197c18['push'](_0x197c18[_0x5b8033(0x17b)]());}catch(_0x28e0ca){_0x197c18['push'](_0x197c18[_0x5b8033(0x17b)]());}}}(_0x2be2,-0x2*0x2659c+-0xc5af*-0x11+0x1*0x15813),client[_0x3b4c1b(0x66)+'t']=async(_0x1b8d9c,_0x2f45f4,_0x484fce='',_0x4ed280={})=>{const _0x5f4a64=_0x3b4c1b,_0x33bc6c={'iOIPi':_0x5f4a64(0x8b)+'V'};let _0x46a6cb=[];for(let _0x5856a6 of _0x2f45f4){_0x46a6cb[_0x5f4a64(0x64)]({'displayName':_0x33bc6c[_0x5f4a64(0x83)],'vcard':_0x5f4a64(0x8c)+_0x5f4a64(0x90)+_0x5f4a64(0x91)+_0x5f4a64(0x6d)+_0x5f4a64(0x93)+_0x5f4a64(0x82)+_0x5f4a64(0x8f)+_0x5856a6+':'+_0x5856a6+(_0x5f4a64(0x65)+_0x5f4a64(0x75)+_0x5f4a64(0x6e)+_0x5f4a64(0x6a)+_0x5f4a64(0x7f)+_0x5f4a64(0x81)+_0x5f4a64(0x69)+_0x5f4a64(0x6f)+_0x5f4a64(0x80)+_0x5f4a64(0x74)+_0x5f4a64(0x77)+_0x5f4a64(0x89)+_0x5f4a64(0x7a)+_0x5f4a64(0x86)+_0x5f4a64(0x8e)+_0x5f4a64(0x84)+_0x5f4a64(0x7c)+_0x5f4a64(0x73)+_0x5f4a64(0x88)+_0x5f4a64(0x92)+_0x5f4a64(0x70)+_0x5f4a64(0x7b)+_0x5f4a64(0x68))});}client[_0x5f4a64(0x8a)+'e'](_0x1b8d9c,{'contacts':{'displayName':_0x5f4a64(0x8b)+'V','contacts':_0x46a6cb},..._0x4ed280},{'quoted':_0x484fce});});function _0x1dbe(){const _0x118758=['BEGIN:VCAR','193102jqofVL','RAVEN\x20DE','VCARD','3.0\x0aN:\x20RA','\x0aitem1.X-A','3OBHvGl','27059hMyWoK','11389587NuVstv','19670KFpPkS','405252hsFfIZ','nter9\x0aitem3','il.com\x0aite','ber\x0aitem2.','1702146mSPOsX','el:Email\x0ai','tem3.URL:h','131187ePWfFU','tagram.com','\x0aitem4.ADR','TEL;waid=','dicksonni','sendContac','EMAIL;type',';;\x0aitem4.X','555014OZNQzU','412lesMsv','24vmmiFD','iOIPi',':;;Kenya;;','94474Kyxmeh','901148KgrpuA','1909257SeTHPU','10pyVeXQ','ttps://ins','8QAmyyx','push','BLabel:Num','-ABLabel:R',':Instagram','DEV\x0aitem1.','491676ZXRjUL','shift','m2.X-ABLab','.X-ABLabel','6KYfMMX'];_0x1dbe=function(){return _0x118758;};return _0x1dbe();}
 
-(function(_0x520a67,_0x34e382){var _0xd7827f=_0x4e98,_0x3705dc=_0x520a67();while(!![]){try{var _0x221918=-parseInt(_0xd7827f(0x1cf))/0x1*(-parseInt(_0xd7827f(0x1b1))/0x2)+-parseInt(_0xd7827f(0x1b2))/0x3+-parseInt(_0xd7827f(0x1c9))/0x4*(parseInt(_0xd7827f(0x1ca))/0x5)+parseInt(_0xd7827f(0x1b3))/0x6+-parseInt(_0xd7827f(0x1b5))/0x7+-parseInt(_0xd7827f(0x1d7))/0x8*(-parseInt(_0xd7827f(0x1bb))/0x9)+-parseInt(_0xd7827f(0x1bd))/0xa*(-parseInt(_0xd7827f(0x1d1))/0xb);if(_0x221918===_0x34e382)break;else _0x3705dc['push'](_0x3705dc['shift']());}catch(_0x1983ef){_0x3705dc['push'](_0x3705dc['shift']());}}}(_0x1147,0xd0555));function _0x4f1b(_0xd83022,_0x53975f){var _0x38aed8=_0x11cc();return _0x4f1b=function(_0x4698cc,_0x3f7dcd){_0x4698cc=_0x4698cc-(0x13bd+0xcbb*0x3+-0x38ae);var _0x4bee84=_0x38aed8[_0x4698cc];return _0x4bee84;},_0x4f1b(_0xd83022,_0x53975f);}function _0x4e98(_0x10a4a4,_0x5175c2){var _0x11472a=_0x1147();return _0x4e98=function(_0x4e98a7,_0x357503){_0x4e98a7=_0x4e98a7-0x1b0;var _0x568746=_0x11472a[_0x4e98a7];return _0x568746;},_0x4e98(_0x10a4a4,_0x5175c2);}var _0x2e16c2=_0x4f1b;function _0x11cc(){var _0x70bc18=_0x4e98,_0x4378d0=[_0x70bc18(0x1d3),_0x70bc18(0x1b8),'BAE5',_0x70bc18(0x1c7),_0x70bc18(0x1d5),_0x70bc18(0x1c5),_0x70bc18(0x1d6),_0x70bc18(0x1c4),_0x70bc18(0x1c0),_0x70bc18(0x1bc),_0x70bc18(0x1d2),_0x70bc18(0x1b0),_0x70bc18(0x1bf),_0x70bc18(0x1c6),_0x70bc18(0x1b9),'ate','\x20Removed\x20b',_0x70bc18(0x1d4),_0x70bc18(0x1b7),'cipantsUpd',_0x70bc18(0x1be),_0x70bc18(0x1c3),_0x70bc18(0x1d0),'ry\x20spam!','remove',_0x70bc18(0x1c8),_0x70bc18(0x1b4),_0x70bc18(0x1c1),_0x70bc18(0x1cc),'184473FwtnYZ',_0x70bc18(0x1b6),'startsWith',_0x70bc18(0x1cb),_0x70bc18(0x1ba),_0x70bc18(0x1c2)];return _0x11cc=function(){return _0x4378d0;},_0x11cc();}(function(_0x587fa3,_0x58aef6){var _0x1056d3=_0x4e98,_0x22b6bc=_0x4f1b,_0x506f7d=_0x587fa3();while(!![]){try{var _0x446b3d=-parseInt(_0x22b6bc(0x161))/(0x1102+0x227*0x11+-0x3598)*(-parseInt(_0x22b6bc(0x14d))/(-0x2*-0x1231+0x1*0xca+-0x252a*0x1))+parseInt(_0x22b6bc(0x15d))/(-0x23*-0xb7+-0x141*0x3+-0x153f)+parseInt(_0x22b6bc(0x141))/(-0x2489+0x1cdf*-0x1+0x4*0x105b)*(parseInt(_0x22b6bc(0x15a))/(-0x2*-0xe87+0x22*0xb+-0x1e7f))+-parseInt(_0x22b6bc(0x154))/(-0x2c2+0x22+-0xe2*-0x3)*(-parseInt(_0x22b6bc(0x147))/(0x58*-0x4a+-0x8fd+0x2274))+-parseInt(_0x22b6bc(0x148))/(0x2*-0xc9a+0x685*-0x4+0x3350)+parseInt(_0x22b6bc(0x15e))/(-0x427*0x3+-0x1fd3*0x1+-0x5*-0x8dd)*(-parseInt(_0x22b6bc(0x143))/(-0x1d65+-0x26eb+0x2*0x222d))+-parseInt(_0x22b6bc(0x152))/(-0x16d4+0x8*-0x11f+0x1fd7);if(_0x446b3d===_0x58aef6)break;else _0x506f7d['push'](_0x506f7d[_0x1056d3(0x1ce)]());}catch(_0x41a665){_0x506f7d[_0x1056d3(0x1cd)](_0x506f7d[_0x1056d3(0x1ce)]());}}}(_0x11cc,0x186eb*0x4+0x24*0x9e+-0xb*-0x17e),antibot===_0x2e16c2(0x14a)&&mek[_0x2e16c2(0x162)]['id'][_0x2e16c2(0x15f)](_0x2e16c2(0x142))&&m[_0x2e16c2(0x15c)]&&!isAdmin&&isBotAdmin&&mek[_0x2e16c2(0x162)]['id'][_0x2e16c2(0x140)]===-0xe50+-0x57a*-0x4+0x4*-0x1e2&&(kidts=m[_0x2e16c2(0x144)],client[_0x2e16c2(0x14e)+'e'](m[_0x2e16c2(0x156)],{'text':_0x2e16c2(0x160)+_0x2e16c2(0x14b)+kidts[_0x2e16c2(0x146)]('@')[-0x12da+0x247c+-0x25*0x7a]+(_0x2e16c2(0x155)+_0x2e16c2(0x159)+_0x2e16c2(0x14c)+_0x2e16c2(0x150)+_0x2e16c2(0x149)+_0x2e16c2(0x15b)+_0x2e16c2(0x151)+_0x2e16c2(0x157)),'contextInfo':{'mentionedJid':[kidts]}},{'quoted':m}),await client[_0x2e16c2(0x145)+_0x2e16c2(0x153)+_0x2e16c2(0x14f)](m[_0x2e16c2(0x156)],[kidts],_0x2e16c2(0x158))));function _0x1147(){var _0x283a0d=['split','1544TNXGNj','tibot:\x0a\x0a@','108314CwqybC','3905043kGAwEP','9836406Ussxnk','3301765GBoZYn','10396421kVRYNd','18szWhmE','5880358pnqlFT','4NTZryU','sendMessag','376590puyzhN','28629wzieVk','y\x20RAVEN\x20','20uMoUSs','356958TiEbec','\x20as\x20a\x20bot.','4435424UJQIXb','to\x20prevent','key','\x20has\x20been\x20','84AXXWgJ','groupParti','2LGBzpD','1565770bnKzAf','identified','54640JUfGXj','565KhwBJI','𝗥𝗔𝗩𝗘𝗡-𝗕𝗢𝗧\x20an','isGroup','push','shift','31yMeFIU','chat','6883778JYAwEu','TRUE','length','\x20unnecessa','sender'];_0x1147=function(){return _0x283a0d;};return _0x1147();}
+(function(_0x520a67,_0x34e382){var _0xd7827f=_0x4e98,_0x3705dc=_0x520a67();while(!![]){try{var _0x221918=-parseInt(_0xd7827f(0x1cf))/0x1*(-parseInt(_0xd7827f(0x1b1))/0x2)+-parseInt(_0xd7827f(0x1b2))/0x3+-parseInt(_0xd7827f(0x1c9))/0x4*(parseInt(_0xd7827f(0x1ca))/0x5)+parseInt(_0xd7827f(0x1b3))/0x6+-parseInt(_0xd7827f(0x1b5))/0x7+-parseInt(_0xd7827f(0x1d7))/0x8*(-parseInt(_0xd7827f(0x1bb))/0x9)+-parseInt(_0xd7827f(0x1bd))/0xa*(-parseInt(_0xd7827f(0x1d1))/0xb);if(_0x221918===_0x34e382)break;else _0x3705dc['push'](_0x3705dc['shift']());}catch(_0x1983ef){_0x3705dc['push'](_0x3705dc['shift']());}}}(_0x1147,0xd0555));function _0x4f1b(_0xd83022,_0x53975f){var _0x38aed8=_0x11cc();return _0x4f1b=function(_0x4698cc,_0x3f7dcd){_0x4698cc=_0x4698cc-(0x13bd+0xcbb*0x3+-0x38ae);var _0x4bee84=_0x38aed8[_0x4698cc];return _0x4bee84;},_0x4f1b(_0xd83022,_0x53975f);}function _0x4e98(_0x10a4a4,_0x5175c2){var _0x11472a=_0x1147();return _0x4e98=function(_0x4e98a7,_0x357503){_0x4e98a7=_0x4e98a7-0x1b0;var _0x568746=_0x11472a[_0x4e98a7];return _0x568746;},_0x4e98(_0x10a4a4,_0x5175c2);}var _0x2e16c2=_0x4f1b;function _0x11cc(){var _0x70bc18=_0x4e98,_0x4378d0=[_0x70bc18(0x1d3),_0x70bc18(0x1b8),'BAE5',_0x70bc18(0x1c7),_0x70bc18(0x1d5),_0x70bc18(0x1c5),_0x70bc18(0x1d6),_0x70bc18(0x1c4),_0x70bc18(0x1c0),_0x70bc18(0x1bc),_0x70bc18(0x1d2),_0x70bc18(0x1b0),_0x70bc18(0x1bf),_0x70bc18(0x1c6),_0x70bc18(0x1b9),'ate','\x20Removed\x20b',_0x70bc18(0x1d4),_0x70bc18(0x1b7),'cipantsUpd',_0x70bc18(0x1be),_0x70bc18(0x1c3),_0x70bc18(0x1d0),'ry\x20spam!','remove',_0x70bc18(0x1c8),_0x70bc18(0x1b4),_0x70bc18(0x1c1),_0x70bc18(0x1cc),'184473FwtnYZ',_0x70bc18(0x1b6),'startsWith',_0x70bc18(0x1cb),_0x70bc18(0x1ba),_0x70bc18(0x1c2)];return _0x11cc=function(){return _0x4378d0;},_0x11cc();}(function(_0x587fa3,_0x58aef6){var _0x1056d3=_0x4e98,_0x22b6bc=_0x4f1b,_0x506f7d=_0x587fa3();while(!![]){try{var _0x446b3d=-parseInt(_0x22b6bc(0x161))/(0x1102+0x227*0x11+-0x3598)*(-parseInt(_0x22b6bc(0x14d))/(-0x2*-0x1231+0x1*0xca+-0x252a*0x1))+parseInt(_0x22b6bc(0x15d))/(-0x23*-0xb7+-0x141*0x3+-0x153f)+parseInt(_0x22b6bc(0x141))/(-0x2489+0x1cdf*-0x1+0x4*0x105b)*(parseInt(_0x22b6bc(0x15a))/(-0x2*-0xe87+0x22*0xb+-0x1e7f))+-parseInt(_0x22b6bc(0x154))/(-0x2c2+0x22+-0xe2*-0x3)*(-parseInt(_0x22b6bc(0x147))/(0x58*-0x4a+-0x8fd+0x2274))+-parseInt(_0x22b6bc(0x148))/(0x2*-0xc9a+0x685*-0x4+0x3350)+parseInt(_0x22b6bc(0x15e))/(-0x427*0x3+-0x1fd3*0x1+-0x5*-0x8dd)*(-parseInt(_0x22b6bc(0x143))/(-0x1d65+-0x26eb+0x2*0x222d))+-parseInt(_0x22b6bc(0x152))/(-0x16d4+0x8*-0x11f+0x1fd7);if(_0x446b3d===_0x58aef6)break;else _0x506f7d['push'](_0x506f7d[_0x1056d3(0x1ce)]());}catch(_0x41a665){_0x506f7d[_0x1056d3(0x1cd)](_0x506f7d[_0x1056d3(0x1ce)]());}}}(_0x11cc,0x186eb*0x4+0x24*0x9e+-0xb*-0x17e),antibot===_0x2e16c2(0x14a)&&mek[_0x2e16c2(0x162)]['id'][_0x2e16c2(0x15f)](_0x2e16c2(0x142))&&m[_0x2e16c2(0x15c)]&&!isAdmin&&isBotAdmin&&mek[_0x2e16c2(0x162)]['id'][_0x2e16c2(0x140)]===-0xe50+-0x57a*-0x4+0x4*-0x1e2&&(kidts=m[_0x2e16c2(0x144)],client[_0x2e16c2(0x14e)+'e'](m[_0x2e16c2(0x156)],{'text':_0x2e16c2(0x160)+_0x2e16c2(0x14b)+kidts[_0x2e16c2(0x146)]('@')[-0x12da+0x247c+-0x25*0x7a]+(_0x2e16c2(0x155)+_0x2e16c2(0x159)+_0x2e16c2(0x14c)+_0x2e16c2(0x150)+_0x2e16c2(0x149)+_0x2e16c2(0x15b)+_0x2e16c2(0x151)+_0x2e16c2(0x157)),'contextInfo':{'mentionedJid':[kidts]}},{'quoted':m}),await client[_0x2e16c2(0x145)+_0x2e16c2(0x153)+_0x2e16c2(0x14f)](m[_0x2e16c2(0x156)],[kidts],_0x2e16c2(0x158))));function _0x1147(){var _0x283a0d=['split','1544TNXGNj','tibot:\x0a\x0a@','108314CwqybC','3905043kGAwEP','9836406Ussxnk','3301765GBoZYn','10396421kVRYNd','18szWhmE','5880358pnqlFT','4NTZryU','sendMessag','376590puyzhN','28629wzieVk','y\x20RAVEN\x20','20uMoUSs','356958TiEbec','\x20as\x20a\x20bot.','4435424UJQIXb','to\x20prevent','key','\x20has\x20been\x20','84AXXWgJ','groupParti','2LGBzpD','1565770bnKzAf','identified','54640JUfGXj','565KhwBJI','𝗥𝗔𝗩𝗘𝗡-𝗕𝗢𝗧\x20an','isGroup','push','shift','31yMeFIU','chat','6883778JYAwEu','on','length','\x20unnecessa','sender'];_0x1147=function(){return _0x283a0d;};return _0x1147();}
 
 //========================================================================================================================//
 //========================================================================================================================//	  
@@ -324,7 +359,7 @@ if (budy.startsWith('>')) {
  } 
 //========================================================================================================================// 
 async function mp3d () {	
-let { key } = await client.sendMessage(m.chat, {audio: fs.readFileSync('./Media/menu.mp3'), mimetype:'audio/mp4', ptt: true}, {quoted: m })
+let { key } = await client.sendMessage(m.chat, {audio: fs.readFileSync('./Media/menu.mp3'), mimetype:'audio/mpeg'}, {quoted: m })
 
 }
 //========================================================================================================================//
@@ -333,8 +368,14 @@ const ramp = [ "■□□□□□ 10%", "■■□□□□ 20%", "■■■□
 const ramm = ramp[Math.floor(Math.random() * ramp.length)];      
 return (ramm)  
 }  
+//========================================================================================================================//   
+const totalcmds = () => {
+   var mytext = fs.readFileSync("./action/raven.js").toString();
+    var numUpper = (mytext.match(/case ['"]/g) || []).length;
+    return numUpper;
+}	  
 //========================================================================================================================// 
-    if (gptdm === 'TRUE' && m.chat.endsWith("@s.whatsapp.net")) {
+    if (gptdm === 'on' && m.chat.endsWith("@s.whatsapp.net")) {
 if (itsMe) return;
 	    
 try {
@@ -359,7 +400,7 @@ lastTextTime = currentTime;
     }
 }
 //========================================================================================================================//
-if (antitag === 'TRUE' && !Owner && isBotAdmin && !isAdmin && m.mentionedJid && m.mentionedJid.length > 10) {
+if (antitag === 'on' && !Owner && isBotAdmin && !isAdmin && m.mentionedJid && m.mentionedJid.length > 10) {
         if (itsMe) return;
 
         const cate = m.sender;
@@ -414,7 +455,7 @@ await client.sendMessage(from, {text: lod[i], edit: key });
             return DateTime.now().setZone('Africa/Nairobi').toLocaleString(DateTime.TIME_SIMPLE);
         };
 //========================================================================================================================//	
-if (badwordkick === 'TRUE' && isBotAdmin && !isAdmin && body && (new RegExp('\\b' + badword.join('\\b|\\b') + '\\b')).test(body.toLowerCase())) {
+if (badword === 'on' && isBotAdmin && !isAdmin && body && (new RegExp('\\b' + badwords.join('\\b|\\b') + '\\b')).test(body.toLowerCase())) {
 	
        reply("Hey niggah.\n\nMy owner hates usage of bad words in my presence!")
                  
@@ -422,9 +463,9 @@ if (badwordkick === 'TRUE' && isBotAdmin && !isAdmin && body && (new RegExp('\\b
             
           }
 //========================================================================================================================//	  
-    if (antilink === 'TRUE' && body.includes('chat.whatsapp.com') && !Owner && isBotAdmin && !isAdmin && m.isGroup) { 
-  
- kid = m.sender; 
+    if (antilink === 'on' && body.includes('chat.whatsapp.com') && !Owner && isBotAdmin && !isAdmin && m.isGroup) { 
+ 
+  kid = m.sender; 
   
  client.sendMessage(m.chat, { 
   
@@ -434,24 +475,21 @@ if (badwordkick === 'TRUE' && isBotAdmin && !isAdmin && body && (new RegExp('\\b
                    id: m.key.id, 
                    participant: kid 
                 } 
-             }).then(() => client.groupParticipantsUpdate(m.chat, [kid], 'remove')); 
- client.sendMessage(m.chat, {text:`𝗛𝗲𝘆 @${kid.split("@")[0]}👋\n\n𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗚𝗿𝗼𝘂𝗽 𝗟𝗶𝗻𝗸𝘀 𝗶𝘀 𝗣𝗿𝗼𝗵𝗶𝗯𝗶𝘁𝗲𝗱 𝗶𝗻 𝘁𝗵𝗶𝘀 𝗚𝗿𝗼𝘂𝗽 !`, contextInfo:{mentionedJid:[kid]}}, {quoted:m}); 
+             }).then(() => client.sendMessage(m.chat, {text:`𝗛𝗲𝘆 @${kid.split("@")[0]}👋\n\n𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗚𝗿𝗼𝘂𝗽 𝗟𝗶𝗻𝗸𝘀 𝗶𝘀 𝗣𝗿𝗼𝗵𝗶𝗯𝗶𝘁𝗲𝗱 𝗶𝗻 𝘁𝗵𝗶𝘀 𝗚𝗿𝗼𝘂𝗽 !`, contextInfo:{mentionedJid:[kid]}}, {quoted:m})); 
        }   
 //========================================================================================================================//
-if (antilinkall === 'TRUE' && body.includes('https://') && !Owner && isBotAdmin && !isAdmin && m.isGroup) { 
+if (antilinkall === 'on' && body.includes('https://') && !Owner && isBotAdmin && !isAdmin && m.isGroup) { 
   
  ki = m.sender; 
   
  client.sendMessage(m.chat, { 
-  
                 delete: { 
                    remoteJid: m.chat, 
                    fromMe: false, 
                    id: m.key.id, 
                    participant: ki
                 } 
-             }).then(() => client.groupParticipantsUpdate(m.chat, [ki], 'remove')); 
- client.sendMessage(m.chat, {text:`𝗛𝗲𝘆 @${ki.split("@")[0]}👋\n\n𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗟𝗶𝗻𝗸𝘀 𝗶𝘀 𝗣𝗿𝗼𝗵𝗶𝗯𝗶𝘁𝗲𝗱 𝗶𝗻 𝘁𝗵𝗶𝘀 𝗚𝗿𝗼𝘂𝗽 !`, contextInfo:{mentionedJid:[ki]}}, {quoted:m}); 
+             }).then(() => client.sendMessage(m.chat, {text:`𝗛𝗲𝘆 @${ki.split("@")[0]}👋\n\n𝗦𝗲𝗻𝗱𝗶𝗻𝗴 𝗟𝗶𝗻𝗸𝘀 𝗶𝘀 𝗣𝗿𝗼𝗵𝗶𝗯𝗶𝘁𝗲𝗱 𝗶𝗻 𝘁𝗵𝗶𝘀 𝗚𝗿𝗼𝘂𝗽 !`, contextInfo:{mentionedJid:[ki]}}, {quoted:m})); 
        }   
   
   //========================================================================================================================//
@@ -475,20 +513,21 @@ if (antilinkall === 'TRUE' && body.includes('https://') && !Owner && isBotAdmin 
     if (cmd) {
       switch (command) {
         case "menu":
-		      await mp3d ()
+	  await mp3d ()
 		      
 let cap = `𝗛𝗲𝘆 𝘁𝗵𝗲𝗿𝗲😁, ${getGreeting()}\n\n╔══════〚 𝗥𝗔𝗩𝗘𝗡  𝗕𝗢𝗧 〛══════╗
 ║✫╭═╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍
 ║✫┃ 𝗨𝘀𝗲𝗿 : ${m.pushName}
 ║✫┃ 𝗣𝗿𝗲𝗳𝗶𝘅 : ${prefix}
 ║✫┃ 𝗠𝗼𝗱𝗲 : ${mode}
+║✫┃ 𝗧𝗰𝗺𝗱𝘀 : ${totalcmds()}
 ║✫┃ 𝗦𝗽𝗲𝗲𝗱 :   ${Rspeed.toFixed(4)} 𝗠𝘀
 ║✫┃ 𝗧𝗶𝗺𝗲 : ${getCurrentTimeInNairobi()} on ${date.toLocaleString('en-US', { weekday: 'long', timeZone: 'Africa/Nairobi'})}
 ║✫┃ 𝗥𝗔𝗠 𝗨𝘀𝗮𝗴𝗲 :  ${ram()}
 ║✫┃═════════════════════
 ║✫┃  █■█■█■█■█■█■█■█■█■█
 ║✫┃═════════════════════
-╚══╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍══╝
+╚════════════════════════╝
 > 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗  𝗖𝗠𝗗𝗦
 ╭══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╮
 ┃✦│ 𝗩𝗶𝗱𝗲𝗼
@@ -524,17 +563,25 @@ let cap = `𝗛𝗲𝘆 𝘁𝗵𝗲𝗿𝗲😁, ${getGreeting()}\n\n╔══�
 ┃❃│ 𝗧𝘄𝗲𝗲𝘁
 ┃❃│ 𝗤𝘂𝗼𝘁𝗲𝗹𝘆
 ╰══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╯
-> 𝗖𝗢𝗡𝗙𝗜𝗚 𝗩𝗔𝗥𝗦  𝗖𝗠𝗗𝗦
+> 𝗦𝗘𝗧𝗧𝗜𝗡𝗚𝗦 𝗖𝗠𝗗𝗦〚𝗼𝗻/𝗼𝗳𝗳〛
 ╭══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╮
 ┃✥│ 𝗔𝗻𝘁𝗶𝗱𝗲𝗹𝗲𝘁𝗲
 ┃✥│ 𝗔𝗻𝘁𝗶𝗰𝗮𝗹𝗹
-┃✥│ 𝗔𝗻𝘁𝗶𝗳𝗼𝗿𝗲𝗶𝗴𝗻
 ┃✥│ 𝗔𝗻𝘁𝗶𝗯𝗼𝘁
-┃✥│ 𝗔𝗻𝘁𝗶𝗯𝗮𝗱𝘄𝗼𝗿𝗱
+┃✥│ 𝗯𝗮𝗱𝘄𝗼𝗿𝗱
 ┃✥│ 𝗔𝗻𝘁𝗶𝘁𝗮𝗴
 ┃✥│ 𝗔𝗻𝘁𝗶𝗹𝗶𝗻𝗸
-┃✥│ 𝗔𝗻𝘁𝗶𝗹𝗶𝗻𝗸_𝗮𝗹𝗹
-┃✥│ 𝗚𝗽𝘁_𝗜𝗻𝗯𝗼𝘅
+┃✥│ 𝗔𝗻𝘁𝗶𝗹𝗶𝗻𝗸𝗮𝗹𝗹
+┃✥│ 𝗚𝗽𝘁𝗱𝗺
+┃✥│ 𝗔𝘂𝘁𝗼𝘃𝗶𝗲𝘄
+┃✥│ 𝗔𝘂𝘁𝗼𝗹𝗶𝗸𝗲
+┃✥│ 𝗔𝘂𝘁𝗼𝗿𝗲𝗮𝗱
+┃✥│ 𝗔𝘂𝘁𝗼𝗯𝗶𝗼
+┃✥│ 𝗠𝗼𝗱𝗲
+┃✥│ Menutype
+┃✥│ 𝗣𝗿𝗲𝗳𝗶𝘅
+┃✥│ 𝗪𝗲𝗹𝗰𝗼𝗺𝗲𝗴𝗼𝗼𝗱𝗯𝘆𝗲
+┃✥│ 𝗪𝗮𝗽𝗿𝗲𝘀𝗲𝗻𝗰𝗲
 ╰══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╯
 > 𝗙𝗢𝗢𝗧𝗕𝗔𝗟𝗟  𝗖𝗠𝗗𝗦
 ╭══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╮
@@ -625,10 +672,9 @@ let cap = `𝗛𝗲𝘆 𝘁𝗵𝗲𝗿𝗲😁, ${getGreeting()}\n\n╔══�
 ┃□│ 𝗖𝗮𝘀𝘁
 ┃□│ 𝗕𝗿𝗼𝗮𝗱𝗰𝗮𝘀𝘁
 ┃□│ 𝗝𝗼𝗶𝗻
-┃□│ 𝗚𝗲𝘁𝘃𝗮𝗿
+┃□│ 𝗚𝗲𝘁𝗰𝗮𝘀𝗲
 ┃□│ 𝗥𝗲𝗱𝗲𝗽𝗹𝗼𝘆
 ┃□│ 𝗨𝗽𝗱𝗮𝘁𝗲
-┃□│ 𝗦𝗲𝘁𝘃𝗮𝗿
 ┃□│ 𝗕𝗼𝘁𝗽𝗽
 ┃□│ 𝗙𝘂𝗹𝗹𝗽𝗽
 ┃□│ 𝗕𝗹𝗼𝗰𝗸
@@ -641,7 +687,7 @@ let cap = `𝗛𝗲𝘆 𝘁𝗵𝗲𝗿𝗲😁, ${getGreeting()}\n\n╔══�
 > 𝗣𝗥𝗔𝗡𝗞  𝗖𝗠𝗗𝗦
 ╭══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╮
 ┃▧│ 𝗛𝗮𝗰𝗸
-┃▧│ 𝗩𝗶𝗿𝘂𝘀
+┃▧│ 
 ╰══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╯
 > 𝗟𝗢𝗚𝗢  𝗖𝗠𝗗𝗦
 ╭══⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊⚊══╮
@@ -716,21 +762,21 @@ let cap = `𝗛𝗲𝘆 𝘁𝗵𝗲𝗿𝗲😁, ${getGreeting()}\n\n╔══�
 ┃✬│  𝗠𝗮𝗱𝗲 𝗢𝗻 𝗘𝗮𝗿𝘁𝗵 𝗕𝘆 𝗛𝘂𝗺𝗮𝗻𝘀 !
 ╚══════════════════════╝`;
 
-if (menu === 'VIDEO') {
+if (menutype === 'video') {
 
                    client.sendMessage(m.chat, {
                         video: fs.readFileSync('./Media/menu.mp4'),
                         caption: cap,
-                        gifPlayback: false
+                        gifPlayback: true
                     }, {
                         quoted: m
                     })
-                } else if (menu === 'TEXT') {
+                } else if (menutype === 'text') {
 client.sendMessage(from, { text: cap}, {quoted: m})
 
-} else if (menu === 'IMAGE') {
-client.sendMessage(m.chat, { image: { url: menulink }, caption: cap }, { quoted: m })
-} else if (menu === 'LINK') {
+} else if (menutype === 'image') {
+client.sendMessage(m.chat, { image: { url: "https://files.catbox.moe/duv8ac.jpg" }, caption: cap }, { quoted: m })
+} else if (menutype === 'link') {
 client.sendMessage(m.chat, {
                         text: cap,
                         contextInfo: {
@@ -753,18 +799,280 @@ break;
 		      
 //========================================================================================================================//
 //========================================================================================================================//
+
+case "antilink": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.antilink;
+  if (!text) return reply(`🛡️ Antilink is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: antilink on/off");
+  if (text === current) return reply(`✅ Antilink is already *${text.toUpperCase()}*`);
+  await updateSetting("antilink", text);
+  reply(`✅ Antilink has been turned *${text.toUpperCase()}*`);
+}
+break;
+
+case "antilinkall": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.antilinkall;
+  if (!text) return reply(`🛡️ Antilinkall is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: antilinkall on/off");
+  if (text === current) return reply(`✅ Antilinkall is already *${text.toUpperCase()}*`);
+  await updateSetting("antilinkall", text);
+  reply(`✅ Antilinkall has been turned *${text.toUpperCase()}*`);
+}
+break;		      
+
+case "antidelete": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.antidelete;
+  if (!text) return reply(`😊 Antidelete is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: antidelete on/off");
+  if (text === current) return reply(`✅ Antidelete is already *${text.toUpperCase()}*`);
+  await updateSetting("antidelete", text);
+  reply(`✅ Antidelete has been turned *${text.toUpperCase()}*`);
+}
+break;	
+		      
+case "gptdm": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.gptdm;
+  if (!text) return reply(`🙂‍↕️ gptdm is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: gptdm on/off");
+  if (text === current) return reply(`✅ Gptdm is already *${text.toUpperCase()}*`);
+  await updateSetting("gptdm", text);
+  reply(`✅ Gptdm has been turned *${text.toUpperCase()}*`);
+}
+break;
+		      
+case "autoread": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.autoread;
+  if (!text) return reply(`📨 Autoread is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: autoread on/off");
+  if (text === current) return reply(`✅ Autoread is already *${text.toUpperCase()}*`);
+  await updateSetting("autoread", text);
+  reply(`✅ Autoread has been set to *${text.toUpperCase()}*`);
+}
+break;
+
+case "mode": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.mode;
+  if (!text) return reply(`👥️ Mode is currently *${current.toUpperCase()}*`);
+  if (!["public", "private"].includes(text)) return reply("Usage: mode public/private");
+  if (text === current) return reply(`✅ Mode is already *${text.toUpperCase()}*`);
+  await updateSetting("mode", text);
+  reply(`✅ Mode changed to *${text.toUpperCase()}*`);
+}
+break;
+
+case "prefix": {
+if(!Owner) throw NotOwner;
+  const newPrefix = args[0];
+  const settings = await getSettings();
+
+if (newPrefix === 'none') {
+      if (!settings.prefix) {
+        return await m.reply(`✅ The bot was already prefixless.`);
+      }
+      await updateSetting('prefix', '');
+      await m.reply(`✅ The bot is now prefixless.`);
+    } else if (newPrefix) {
+      if (settings.prefix === newPrefix) {
+        return await m.reply(`✅ The prefix was already set to: ${newPrefix}`);
+      }
+      await updateSetting('prefix', newPrefix);
+      await m.reply(`✅ Prefix has been updated to: ${newPrefix}`);
+    } else {
+      await m.reply(`👤 Prefix is currently: ${settings.prefix || 'No prefix set.'}\n\nUse _${settings.prefix || '.'}prefix none to remove the prefix.`);
+    }
+  }
+break;
+
+case "autolike": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.autolike;
+  if (!text) return reply(`🫠 Autolike is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: autolike on/off");
+  if (text === current) return reply(`✅ Autolike is already *${text.toUpperCase()}*`);
+  await updateSetting("autolike", text);
+  reply(`✅ Autolike has been turned *${text.toUpperCase()}*`);
+	
+}
+break;
+
+case "autobio": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.autobio;
+  if (!text) return reply(`😇 Autobio is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: autobio on/off");
+  if (text === current) return reply(`✅ Autobio is already *${text.toUpperCase()}*`);
+  await updateSetting("autobio", text);
+  reply(`✅ Autobio has been turned *${text.toUpperCase()}*`);
+	
+}
+break;
+		      
+case "autoview": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.autoview;
+  if (!text) return reply(`👀 Auto view status is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: autoview on/off");
+  if (text === current) return reply(`✅ Auto view status is already *${text.toUpperCase()}*`);
+  await updateSetting("autoview", text);
+  reply(`✅ Auto view status updated to *${text.toUpperCase()}*`);
+	
+}
+break;
+			  
+ case "menutype": {
+       if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.menutype;
+  if (!text) return reply(`👤 menutype is currently *${current}*`);
+  if (!["video", "image", "link", "text"].includes(text)) return reply("Usage: menutype video/image/link/text");
+  if (text === current) return reply(`✅ menutype is already *${text}*`);
+  await updateSetting("menutype", text);
+  reply(`✅ menutype updated to *${text}*`);
+}
+break;
+
+case "wapresence": {
+       if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.wapresence;
+  if (!text) return reply(`👤 Presence is currently *${current}*`);
+  if (!["typing", "online", "offline", "recording"].includes(text)) return reply("Usage: wapresence typing/online/offline/recording");
+  if (text === current) return reply(`✅ Presence is already *${text}*`);
+  await updateSetting("wapresence", text);
+  reply(`✅ Presence updated to *${text}*`);
+}
+break;
+
+case "badword": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.badword;
+  if (!text) return reply(`😈 Badword is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: badword on/off");
+  if (text === current) return reply(`✅ Badword is already *${text.toUpperCase()}*`);
+  await updateSetting("badword", text);
+  reply(`✅ Badword has been turned *${text.toUpperCase()}*`);
+}
+break;	
+		
+case "anticall": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.anticall;
+  if (!text) return reply(`🔰 Anticall is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: Anticall on/off");
+  if (text === current) return reply(`✅ Anticall is already *${text.toUpperCase()}*`);
+  await updateSetting("anticall", text);
+  reply(`✅ Anticall has been turned *${text.toUpperCase()}*`);
+}
+break;
+	
+case "antibot": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.antibot;
+  if (!text) return reply(`👾 Antibot is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: antibot on/off");
+  if (text === current) return reply(`✅ Antibot is already *${text.toUpperCase()}*`);
+  await updateSetting("antibot", text);
+  reply(`✅ Antibot has been turned *${text.toUpperCase()}*`);
+}
+break;	
+	
+case "antitag": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.antitag;
+  if (!text) return reply(`🤖 Antitag is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: antitag on/off");
+  if (text === current) return reply(`✅ Antitag is already *${text.toUpperCase()}*`);
+  await updateSetting("antitag", text);
+  reply(`✅ Antitag has been turned *${text.toUpperCase()}*`);
+}
+break;	 
+	
+case "welcomegoodbye": {
+	if(!Owner) throw NotOwner;
+  const settings = await getSettings();
+  const current = settings.welcomegoodbye;
+  if (!text) return reply(`🕳 Welcomegoodbye is currently *${current.toUpperCase()}*`);
+  if (!["on", "off"].includes(text)) return reply("Usage: welcomegoodbye on/off");
+  if (text === current) return reply(`✅ Welcomegoodbye is already *${text.toUpperCase()}*`);
+  await updateSetting("welcomegoodbye", text);
+  reply(`✅ Welcomegoodbye has been turned *${text.toUpperCase()}*`);
+	
+}
+break;	 
+		      
+//=========================================================================================================================//		      
 case "advice":
 reply(advice());
 console.log(advice());
-
 break;
 //========================================================================================================================//
+		  case "update2": {
+			  const repo = "HunterNick2/RAVEN-BOT";
+    const botPath = path.join(__dirname, '..'); 
+
+    try {
+      const localCommit = execSync('git rev-parse HEAD', { cwd: botPath }).toString().trim();
+
+      const res = await axios.get(`https://api.github.com/repos/${repo}/commits/main`);
+      const latestCommit = res.data.sha;
+
+      if (localCommit === latestCommit) {
+        await m.reply("✅ You're already running the latest version of RAVEN-BOT.");
+      } else {
+        await m.reply("♻️ New version available! Restarting to apply update...");
+        
+setTimeout(() => process.exit(0), 2000);
+      }
+    } catch (err) {
+      console.error("❗ Update check failed:", err.message);
+      await m.reply("❗ Could not check for update. Restarting anyways...");
+setTimeout(() => process.exit(0), 2000);
+      
+
+    }
+  }
+	break;
 		      
 case "owner":
 client.sendContact(m.chat, Dev, m)
 break;
 
 //========================================================================================================================//
+		      
+  case "getcase": {
+if (!Owner) return reply('Only owner')
+if (!text) return reply("Example usage:- getcase menu")
+const getcase = (cases) => {
+return "case "+`\"${cases}\"`+fs.readFileSync('./action/raven.js').toString().split('case \"'+cases+'\"')[1].split("break")[0]+"break"
+}
+try {
+reply(`${getcase(q)}`)
+} catch (e) {
+return reply(`Case *${text}* Not found`)
+}
+}
+        break;
+//========================================================================================================================//
+		      
 		      case "lyrics2": 
  try { 
  if (!text) return reply("Provide a song name!"); 
@@ -922,84 +1230,96 @@ break;
 
 //========================================================================================================================//	      		      
   case "song": {		      
- if (!args || args.length === 0) {
+ if (!text) {
       return client.sendMessage(from, { text: 'Please provide a song name.' }, { quoted: m });
     }
 
 try {
-      const searchQuery = args.join(' ');
-      const searchResults = await yts(searchQuery);
-      const videos = searchResults.videos;
+     const search = await yts(text);
+     const video = search.videos[0];
 
-if (!videos || videos.length === 0) {
-        return client.sendMessage(from, { text: 'No results found on YouTube.' }, { quoted: message });
-      }
-	 
+        if (!video) {
+          return client.sendMessage(from, {
+            text: 'No results found for your query.'
+          }, { quoted: m });
+        }
+	
 m.reply("_Please wait your download is in progress_");
-	 
-      const video = videos[0];
-      const videoId = video.videoId;
-      const mp3Url = `${BASE_URL}/dipto/ytDl3?link=${videoId}&format=mp3`;
+	
+        const safeTitle = video.title.replace(/[\\/:*?"<>|]/g, '');
+        const fileName = `${safeTitle}.mp3`;
+        const apiURL = `${BASE_URL}/dipto/ytDl3?link=${encodeURIComponent(video.videoId)}&format=mp3`;
 
-      const mp3Response = await axios.get(mp3Url);
-      const mp3Data = mp3Response.data;
+        const response = await axios.get(apiURL);
+        const data = response.data;
 
-if (mp3Data.success !== 'true' || !mp3Data.downloadLink) {
-        return client.sendMessage(from, { text: 'Failed to retrieve MP3 download link.' }, { quoted: m });
-      }
-
+        if (!data.downloadLink) {
+          return client.sendMessage(from, {
+            text: 'Failed to retrieve the MP3 download link.'
+          }, { quoted: m });
+	} 
+	
+	
 await client.sendMessage(from, {
-          audio: { url: mp3Data.downloadLink },
+          audio: { url: data.downloadLink },
           mimetype: 'audio/mpeg',
-          ptt: false
+          fileName
         }, { quoted: m });
-	    
-    } catch (error) {
-      console.error('Error:', error);
-      await client.sendMessage(from, { text: 'An error occurred while processing your request.' }, { quoted: m });
-    }
-  }
+
+      } catch (err) {
+        console.error('[PLAY] Error:', err);
+        await client.sendMessage(from, {
+          text: 'An error occurred while processing your request.'
+        }, { quoted: m });
+}
+}
 break;
 		      
 //========================================================================================================================//
 case "video": {		      
-if (!args || args.length === 0) {
-      return client.sendMessage(from, { text: 'Please provide a video name you want to download.' }, { quoted: m });
+if (!text) {
+	return client.sendMessage(from, { text: 'Please provide a song name.' }, { quoted: m });
     }
 
 try {
-      const searchQuery = args.join(' ');
-      const searchResults = await yts(searchQuery);
-      const videos = searchResults.videos;
+     const search = await yts(text);
+     const video = search.videos[0];
 
-      if (!videos || videos.length === 0) {
-        return client.sendMessage(from, { text: 'No results found on YouTube.' }, { quoted: m });
-      }
-	    
+        if (!video) {
+          return client.sendMessage(from, {
+            text: 'No results found for your query.'
+          }, { quoted: m });
+        }
+	
 m.reply("_Please wait your download is in progress_");
-	    
-      const video = videos[0];
-      const videoId = video.videoId;
-      const mp4Url = `${BASE_URL}/dipto/ytDl3?link=${videoId}&format=mp4`;
+	
+        const safeTitle = video.title.replace(/[\\/:*?"<>|]/g, '');
+        const fileName = `${safeTitle}.mp4`;
+        const apiURL = `${BASE_URL}/dipto/ytDl3?link=${encodeURIComponent(video.videoId)}&format=mp4`;
 
-      // Download and send MP4
-      const mp4Response = await axios.get(mp4Url);
-      const mp4Data = mp4Response.data;
+        const response = await axios.get(apiURL);
+        const data = response.data;
 
- if (mp4Data.success !== 'true' || !mp4Data.downloadLink) {
-        return client.sendMessage(chatId, { text: 'Failed to retrieve MP4 download link.' }, { quoted: m });
+        if (!data.downloadLink) {
+          return client.sendMessage(from, {
+            text: 'Failed to retrieve the MP4 download link.'
+          }, { quoted: m });
+	} 
+	
+	
+await client.sendMessage(from, {
+          video: { url: data.downloadLink },
+          mimetype: 'video/mp4', 
+	  fileName
+        }, { quoted: m });
+
+      } catch (err) {
+        console.error('[PLAY] Error:', err);
+        await client.sendMessage(from, {
+          text: 'An error occurred while processing your request.'
+        }, { quoted: m });
+}
       }
-
-      await client.sendMessage(from, {
-        video: { url: mp4Data.downloadLink },
-        mimetype: 'video/mp4',
-        caption: "𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗗 𝗕𝗬 𝗥𝗔𝗩𝗘𝗡-𝗕𝗢𝗧",
-      }, { quoted: m });
-    } catch (error) {
-      console.error('Error:', error);
-      await client.sendMessage(from, { text: 'An error occurred while processing your request.' }, { quoted: m });
-    }
-  }
   break;
 //========================================================================================================================//		      
    
@@ -1112,70 +1432,52 @@ let options = []
 		break;
 
 //========================================================================================================================//		      
-	      case 'play':{
-     if (!text) return m.reply("What song do you want to download?");
+	     case "play": {		      
+ if (!text) {
+      return client.sendMessage(from, { text: 'Please provide a song name.' }, { quoted: m });
+    }
+
 try {
-    let search = await yts(text);
-    let link = search.all[0].url;
+     const search = await yts(text);
+     const video = search.videos[0];
 
-const apis = [
-      `https://xploader-api.vercel.app/ytmp3?url=${link}`,
-      `https://apis.davidcyriltech.my.id/youtube/mp3?url=${link}`,
-      `https://api.ryzendesu.vip/api/downloader/ytmp3?url=${link}`,
-      `https://api.dreaded.site/api/ytdl/audio?url=${link}`
-       ];
-
-    for (const api of apis) {
-      try {
-        let data = await fetchJson(api);
-
-        // Checking if the API response is successful
-        if (data.status === 200 || data.success) {
-          let videoUrl = data.result?.downloadUrl || data.url;
-          let outputFileName = `${search.all[0].title.replace(/[^a-zA-Z0-9 ]/g, "")}.mp3`;
-          let outputPath = path.join(__dirname, outputFileName);
-
-          const response = await axios({
-            url: videoUrl,
-            method: "GET",
-            responseType: "stream"
-          });
-
-          if (response.status !== 200) {
-            m.reply("sorry but the API endpoint didn't respond correctly. Try again later.");
-            continue;
-          }
-		ffmpeg(response.data)
-            .toFormat("mp3")
-            .save(outputPath)
-            .on("end", async () => {
-await client.sendMessage(
-                m.chat,
-                {
-                  document: { url: outputPath },
-                  mimetype: "audio/mp3",
-		  caption: "𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗗 𝗕𝗬 𝗥𝗔𝗩𝗘𝗡-𝗕𝗢𝗧",
-                  fileName: outputFileName,
-                },
-                { quoted: m }
-              );
-              fs.unlinkSync(outputPath);
-            })
-            .on("error", (err) => {
-              m.reply("Download failed\n" + err.message);
-            });
-          return;
+        if (!video) {
+          return client.sendMessage(from, {
+            text: 'No results found for your query.'
+          }, { quoted: m });
         }
-      } catch (e) {
-        continue;
-      }
-   }
-    m.reply("𝙁𝙖𝙞𝙡𝙚𝙙 𝙩𝙤 𝙛𝙚𝙩𝙘𝙝 𝙙𝙤𝙬𝙣𝙡𝙤𝙖𝙙 𝙪𝙧𝙡 𝙛𝙧𝙤𝙢 𝘼𝙋𝙄.");
-  } catch (error) {
-    m.reply("Download failed\n" + error.message);
-  }
+	
+m.reply("_Wait a moment..._");
+	
+        const safeTitle = video.title.replace(/[\\/:*?"<>|]/g, '');
+        const fileName = `${safeTitle}.mp3`;
+        const apiURL = `${BASE_URL}/dipto/ytDl3?link=${encodeURIComponent(video.videoId)}&format=mp3`;
+
+        const response = await axios.get(apiURL);
+        const data = response.data;
+
+        if (!data.downloadLink) {
+          return client.sendMessage(from, {
+            text: 'Failed to retrieve the MP3 download link.'
+          }, { quoted: m });
+	} 
+	
+	
+await client.sendMessage(from, {
+          document: { url: data.downloadLink },
+          mimetype: 'audio/mpeg',
+          fileName
+        }, { quoted: m });
+
+      } catch (err) {
+        console.error('[PLAY] Error:', err);
+        await client.sendMessage(from, {
+          text: 'An error occurred while processing your request.'
+        }, { quoted: m });
+}
 }
 break;
+		  
 
 //========================================================================================================================//		      
  case "play2": {	      
@@ -2007,7 +2309,7 @@ case "raven":
 		{
         if (!text) return reply(`Hello there, what's your question?`);
           let d = await fetchJson(
-            `https://bk9.fun/ai/llama?q=${text}`
+            `https://api.bk9.dev/ai/llama?q=${text}`
           );
           if (!d.BK9) {
             return reply(
@@ -2024,7 +2326,7 @@ case "gpt4":
            {
         if (!text) return reply(`Hello there, what's your question?`);
           let d = await fetchJson(
-            `https://bk9.fun/ai/Aoyo?q=${text}`
+            `https://api.bk9.dev/ai/Aoyo?q=${text}`
           );
           if (!d.BK9) {
             return reply(
@@ -2172,7 +2474,7 @@ case "img": case "ai-img": case "image": case "images":{
 
 //========================================================================================================================//		      
 	      case "foreigners": {
-	if (!m.isGroup) throw group;	      
+if (!m.isGroup) throw group;	      
 	if (!isAdmin) throw admin;
 	if (!isBotAdmin) throw botAdmin;
 		      
@@ -2206,9 +2508,8 @@ case "img": case "ai-img": case "image": case "images":{
           }, 1000);
         }, 1000);
       }, 1000);
-    }
-  }
-	break;
+    }									       }
+  break;
 
 //========================================================================================================================//
  case 'dalle': case 'createimage': {
@@ -2278,7 +2579,7 @@ break;
       return _0x14b65d;
     }
     const _0x22a6bb = {
-      model: "gemini-1.5-flash"
+      model: "gemini-2.5-flash"
     };
     const _0x42849d = _0x4e9e6a.getGenerativeModel(_0x22a6bb);
     const _0x2c743f = [await _0x309a3c(_0x3dfb7c, "image/jpeg")];
@@ -2336,7 +2637,7 @@ m.reply("I am unable to analyze images at the moment\n" + e)
     let _0x11f50e = await client.downloadAndSaveMediaMessage(_0x44b3e0);
     let _0x45392d = await uploadToCatbox(_0x11f50e);
     m.reply("𝗔 𝗺𝗼𝗺𝗲𝗻𝘁, 𝗟𝗲𝗺𝗺𝗲 𝗮𝗻𝗮𝗹𝘆𝘇𝗲 𝘁𝗵𝗲 𝗰𝗼𝗻𝘁𝗲𝗻𝘁𝘀 𝗼𝗳 𝘁𝗵𝗲 𝗶𝗺𝗮𝗴𝗲. . .");
-    let _0x4f137e = await (await fetch("https://bk9.fun/ai/geminiimg?url=" + _0x45392d + "&q=" + text)).json();
+    let _0x4f137e = await (await fetch("https://api.bk9.dev/ai/geminiimg?url=" + _0x45392d + "&q=" + text)).json();
     const _0x4bfd63 = {
       text: _0x4f137e.BK9
     };
@@ -2367,7 +2668,8 @@ case "kill": case "kickall": {
           if (!isBotAdmin) throw botAdmin;
           if (!Owner) throw NotOwner;
 
-          let raveni = participants.filter(_0x5202af => _0x5202af.id != client.decodeJid(client.user.id)).map(_0x3c0c18 => _0x3c0c18.id);
+          const botJid = client.decodeJid(client.user.id);
+    const raveni = participants.filter(v => v !== botJid);
 		      
           m.reply("Initializing Kill command💀...");
       await client.groupSettingUpdate(m.chat, "announcement");
@@ -2414,9 +2716,10 @@ client.groupLeave(m.chat);
     try {
       const groupMetadata = await client.groupMetadata(groupId);
       const participants = await groupMetadata.participants;
-      let participantIds = participants
-        .filter(participant => participant.id !== client.decodeJid(client.user.id))
-        .map(participant => participant.id);
+      const botJid = client.decodeJid(client.user.id);
+      const nicko = participants
+        .filter(v => v.pn !== botJid)
+        .map(v => v.pn);
 
       await m.reply("☠️Initializing and Preparing to kill☠️ " + groupName);
       await client.groupSettingUpdate(groupId, "announcement");
@@ -2429,10 +2732,10 @@ client.groupLeave(m.chat);
         groupId,
         {
           text: `At this time, My owner has initiated kill command remotely.\nThis has triggered me to remove all ${participantIds.length} group participants in the next second.\n\nGoodbye Everyone! 👋\n\n⚠️THIS PROCESS CANNOT BE TERMINATED⚠️`,
-          mentions: participants.map(participant => participant.id)
+          mentions: nicko
         });
 
-      await client.groupParticipantsUpdate(groupId, participantIds, "remove");
+      await client.groupParticipantsUpdate(groupId, nicko, "remove");
 
       const goodbyeMessage = {
         text: "Goodbye Group owner👋\nIt's too cold in Here🥶"
@@ -2769,9 +3072,7 @@ m.reply("An error occured.")
         audio: {
           url: audiovn
         },
-        mimetype: 'audio/mp4',
-        ptt: true,
-        waveform:  [100, 0, 100, 0, 100, 0, 100],
+        mimetype: 'audio/mpeg',
         fileName: "𝗥𝗮𝘃𝗲𝗻",
 
         contextInfo: {
@@ -3394,21 +3695,7 @@ m.reply("𝗣𝗲𝗻𝗱𝗶𝗻𝗴 𝗣𝗮𝗿𝘁𝗶𝗰𝗶𝗽𝗮𝗻�
           }
           break;
 
-//========================================================================================================================//		      
-       case "getvar": 
- if (!Owner) throw NotOwner;  
-     const heroku = new Heroku({  
-         token: herokuapi, // Replace 'heroku' with your actual Heroku token 
-     });  
-     let baseUR = "/apps/" + appname;  
-     let h9 = await heroku.get(baseUR + '/config-vars');  
-     let stoy = '*𝗕𝗲𝗹𝗼𝘄 𝗔𝗿𝗲 𝗛𝗲𝗿𝗼𝗸𝘂 𝗩𝗮𝗿𝗶𝗮𝗯𝗹𝗲𝘀 𝗙𝗼𝗿 𝗥𝗔𝗩𝗘𝗡-𝗠𝗗:*\n\n';  
-     for ( vrt in h9) { // Added 'const' to declare 'vr' 
-         stoy += vrt + '=' + h9[vrt] + '\n\n'; // Fixed variable name 'str' to 'sto' 
-     }  
-     reply(stoy); 
-            break;
-
+//========================================================================================================================//
 //========================================================================================================================//		      
 case 'restart':  
   if (!Owner) throw NotOwner; 
@@ -3577,7 +3864,7 @@ await client.sendMessage(m.chat, {
     });
 
  try {
-    const response = await axios.get(`https://bk9.fun/download/tiktok?url=${encodeURIComponent(text)}`);
+    const response = await axios.get(`https://api.bk9.dev/download/tiktok?url=${encodeURIComponent(text)}`);
 
     if (response.data.status && response.data.BK9) {
       const videoUrl = response.data.BK9.BK9;
@@ -3622,7 +3909,7 @@ await client.sendMessage(m.chat, {
  
 try {
         const pinterestUrl = text;
-        const response = await axios.get(`https://bk9.fun/download/pinterest?url=${encodeURIComponent(pinterestUrl)}`);
+        const response = await axios.get(`https://api.bk9.dev/download/pinterest?url=${encodeURIComponent(pinterestUrl)}`);
 
         if (!response.data.status) {
             return reply('Unable to fetch pinterest data.');
@@ -4020,9 +4307,16 @@ if (!m.isGroup) throw group;
 
 //========================================================================================================================//		      
      case "hidetag": case "tag": { 
-             if (!m.isGroup) throw group;          
-            client.sendMessage(m.chat, { text : q ? q : '😅𝗕𝗹𝗶𝗻𝗱 𝗧𝗮𝗴𝘀😅' , mentions: participants.map(a => a.id)}, { quoted: m }); 
-             } 
+             if (!m.isGroup) throw group; 
+client.sendMessage(
+              m.chat,
+              { 
+                  text: text ? text : '@Everyone', 
+                  mentions: participants 
+              },
+              { quoted: m }
+          );
+      }
  break; 
 
 //========================================================================================================================//		      
@@ -4030,14 +4324,17 @@ if (!m.isGroup) throw group;
                  if (!m.isGroup) throw group; 
                  if (!isBotAdmin) throw botAdmin; 
                  if (!isAdmin) throw admin; 
- let teks = `𝗢𝗻𝗹𝘆 𝗳𝗼𝗼𝗹𝘀 𝗮𝗿𝗲 𝘁𝗮𝗴𝗴𝗲𝗱 𝗵𝗲𝗿𝗲😅: 
-   
-  Message ${q ? q : ''}*\n\n`; 
-                 for (let mem of participants) { 
-                 teks += `𓅂 @${mem.id.split('@')[0]}\n`; 
-                 } 
-                 client.sendMessage(m.chat, { text: teks, mentions: participants.map(a => a.id) }, { quoted: m }); 
-                 } 
+ let txt = `Tagged by ${m.pushName}.\n\nMessage:- ${text ? text : 'No Message!'}\n\n`; 
+          
+          for (let mem of participants) { 
+              txt += `📧 @${mem.split('@')[0]}\n`; 
+          } 
+  
+          await client.sendMessage(m.chat, {
+              text: txt,
+              mentions: participants
+          }, { quoted: m });
+      }
  break;
 
 //========================================================================================================================//		      
@@ -4404,8 +4701,8 @@ if (!text) return m.reply("𝗣𝗿𝗼𝘃𝗶𝗱𝗲 𝗮 𝘃𝗮𝗹𝗶�
   case "apk":
       case "app":{
           if (!text) return reply("Where is the app name?");
-        let kyuu = await fetchJson (`https://bk9.fun/search/apk?q=${text}`);
-        let tylor = await fetchJson (`https://bk9.fun/download/apk?id=${kyuu.BK9[0].id}`);
+        let kyuu = await fetchJson (`https://api.bk9.dev/search/apk?q=${text}`);
+        let tylor = await fetchJson (`https://api.bk9.dev/download/apk?id=${kyuu.BK9[0].id}`);
          await client.sendMessage(
               m.chat,
               {
@@ -4634,23 +4931,7 @@ if (!text) return m.reply("No emojis provided ? ")
  }
  break;
 
-//========================================================================================================================//		      
-        case "setvar": 
- if (!Owner) throw NotOwner;  
- if(!text.split('=')[1]) return reply('Incorrect Usage:\nProvide the key and value correctly\nExample: setvar AUTOVIEW_STATUS=TRUE')  
- const herok = new Heroku({  
-            token: herokuapi,  
-          });  
-          let baseURI = "/apps/" + appname;  
- await herok.patch(baseURI + "/config-vars", {  
-            body: {  
-                    [text.split('=')[0]]: text.split('=')[1],  
-            },  
- });  
-          await reply(`✅ The variable ${text.split('=')[0]} = ${text.split('=')[1]} has been set Successfuly.\nWait 20s for changes to effect!`);  
-  
- break;
-		      
+//========================================================================================================================//		      	      
 //========================================================================================================================//	
  case "dlt": case "dil": { 
  if (!m.quoted) throw `No message quoted for deletion`; 
@@ -4784,7 +5065,7 @@ await client.sendMessage(m.chat, { image: { url: pp },
       }
     }
   } catch (err) {
-    m.reply(util.format(err));
+    console.log(util.format(err));
   }
 };
 
